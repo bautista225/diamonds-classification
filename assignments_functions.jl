@@ -1,9 +1,10 @@
 ##### Libraries:
-using Pkg; Pkg.add("Flux")
-using Pkg; Pkg.add("Statistics")
-using Pkg; Pkg.add("Plots")
-using Pkg; Pkg.add("PyPlot")
-using Pkg; Pkg.add("Plotly")
+# using Pkg; 
+# Pkg.add("Flux")
+# Pkg.add("Statistics")
+# Pkg.add("Plots")
+# Pkg.add("PyPlot")
+# Pkg.add("Plotly")
 
 using Flux;
 using Flux.Losses;

@@ -1,6 +1,6 @@
-
-import Pkg;
-Pkg.add("PlotlyJS");
+##### Libraries:
+# import Pkg;
+# Pkg.add("PlotlyJS");
 
 using PlotlyJS;
 using Statistics;
@@ -251,6 +251,38 @@ function plot_dataframe(df, categorical_columns, numerical_columns, save_charts 
         savefig(current_plot, "$(plot_name).png")
     end
 
+    # Scatter 3D plot.
+
+    plot_name = "scatter_3d"
+
+    count1 = 0
+    for column_1 in numerical_columns
+        count1 += 1
+        count2 = 0
+
+        for column_2 in numerical_columns
+            count2 += 1
+            count3 = 0
+
+            if count1 >= count2
+                continue
+            end
+            
+            for column_3 in numerical_columns
+                count3 += 1
+
+                if count3 >= count2
+                    continue
+                end
+
+                current_plot = plot(df, x = column_1, y = column_2, z = column_3, color = :cut, type = "scatter3d", marker_size = 0.5)
+
+                if save_charts
+                    savefig(current_plot, "$(plot_name)_$(column_1)_vs_$(column_2)_vs_$(column_3).png")
+                end
+            end
+        end
+    end
 end
 
 function get_ordinal_column(df, column, classes)
@@ -279,4 +311,40 @@ function diamondTargetOneHotEncoding(df)
     cut_encoded = oneHotEncoding(cut_column, cut_range_ordered)
 
     return cut_encoded
+end
+
+function getZeroMeanNormalizationParameters(df, columns)
+
+    columns_matrix = Matrix{Float64}(df[!, columns])
+
+    normalization_parameters = calculateZeroMeanNormalizationParameters(columns_matrix) # Only with train set.
+
+    return normalization_parameters
+end
+
+function getZeroMeanNormalizedColumns(df, columns, normalization_parameters)
+
+    columns_matrix = Matrix{Float64}(df[!, columns])
+
+    columns_zeroMean = normalizeZeroMean(columns_matrix, normalization_parameters)
+
+    return columns_zeroMean
+end
+
+function getMinMaxNormalizationParameters(df, columns)
+
+    columns_matrix = Matrix{Float64}(df[!, columns])
+
+    normalization_parameters = calculateMinMaxNormalizationParameters(columns_matrix)
+
+    return normalization_parameters
+end
+
+function getMinMaxNormalizedColumns(df, columns, normalization_parameters)
+
+    columns_matrix = Matrix{Float64}(df[!, columns])
+
+    columns_minMax = normalizeMinMax(columns_matrix, normalization_parameters)
+
+    return columns_minMax
 end
