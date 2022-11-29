@@ -171,9 +171,9 @@ end
 """
 Plots barchart, histogram, scatter, boxplot, heatmap charts of a dataframe.
 """
-function plot_dataframe(df, categorical_columns, numerical_columns, save_charts = false)
+function plot_dataframe(df, categorical_columns, numerical_columns; save_charts = false)
     
-    # Bar charts (categorical features).
+    #= # Bar charts (categorical features).
 
     plot_name = "barchart"
 
@@ -249,7 +249,7 @@ function plot_dataframe(df, categorical_columns, numerical_columns, save_charts 
     
     if save_charts
         savefig(current_plot, "$(plot_name).png")
-    end
+    end =#
 
     # Scatter 3D plot.
 
@@ -271,11 +271,14 @@ function plot_dataframe(df, categorical_columns, numerical_columns, save_charts 
             for column_3 in numerical_columns
                 count3 += 1
 
-                if count3 >= count2
+                if count2 >= count3
                     continue
                 end
 
-                current_plot = plot(df, x = column_1, y = column_2, z = column_3, color = :cut, type = "scatter3d", marker_size = 0.5)
+                current_plot = plot(
+                    df, x = column_1, y = column_2, z = column_3, 
+                    color = :cut, type = "scatter3d", mode = "markers", marker_size = 0.5
+                )
 
                 if save_charts
                     savefig(current_plot, "$(plot_name)_$(column_1)_vs_$(column_2)_vs_$(column_3).png")

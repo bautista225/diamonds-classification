@@ -2,9 +2,7 @@
 # using Pkg; 
 # Pkg.add("Flux")
 # Pkg.add("Statistics")
-# Pkg.add("Plots")
-# Pkg.add("PyPlot")
-# Pkg.add("Plotly")
+# Pkg.add("ScikitLearn");
 
 using Flux;
 using Flux.Losses;
@@ -12,7 +10,7 @@ using Random;
 using Random:seed!
 using DelimitedFiles;
 using Statistics;
-using Plots;
+using ScikitLearn;
 
 
 ##### Functions:
@@ -766,9 +764,6 @@ end;
 
 ### Crossvalidation
 
-Pkg.add("ScikitLearn");
-
-using ScikitLearn
 @sk_import svm: SVC
 @sk_import tree: DecisionTreeClassifier
 @sk_import neighbors: KNeighborsClassifier
