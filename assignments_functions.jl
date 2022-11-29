@@ -60,7 +60,7 @@ normalizeMinMax!(dataset::AbstractArray{<:Real,2}) = normalizeMinMax!(dataset, c
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}}) 
     z_dataset = copy(dataset)
-    z_dataset = normalizeMinMax!(z_dataset)
+    z_dataset = normalizeMinMax!(z_dataset, normalizationParameters)
     return z_dataset
 end;
 
@@ -78,7 +78,7 @@ normalizeZeroMean!(dataset::AbstractArray{<:Real,2}) = normalizeZeroMean!(datase
 
 function normalizeZeroMean(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
     z_dataset = copy(dataset)
-    z_dataset = normalizeZeroMean!(z_dataset)
+    z_dataset = normalizeZeroMean!(z_dataset, normalizationParameters)
     return z_dataset
 end;
 
