@@ -5,6 +5,15 @@
 using PlotlyJS;
 using Statistics;
 
+# AdHoc functions
+
+function ordinalEncoding(feature::Vector{<:Any}, classes::Vector{<:Any})
+    mapping = Dict(classes .=> 1:length(classes))
+    return map(feat -> mapping[feat], feature)
+end
+
+ordinalEncoding(feature::Vector{<:Any}) = ordinalEncoding(feature, unique(feature))
+
 function getCategoricalNumericalFeatures(df)
 
     # For every column, extract a list of columns with string type.

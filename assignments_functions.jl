@@ -3,6 +3,7 @@
 # Pkg.add("Flux")
 # Pkg.add("Statistics")
 # Pkg.add("ScikitLearn");
+# Pkg.add("PrettyTables")
 
 using Flux;
 using Flux.Losses;
@@ -11,6 +12,17 @@ using Random:seed!
 using DelimitedFiles;
 using Statistics;
 using ScikitLearn;
+using PrettyTables;
+
+@sk_import svm: SVC
+@sk_import tree: DecisionTreeClassifier
+@sk_import neighbors: KNeighborsClassifier
+@sk_import neural_network: MLPClassifier;
+@sk_import ensemble:VotingClassifier
+@sk_import ensemble:StackingClassifier
+@sk_import ensemble:BaggingClassifier
+@sk_import ensemble:(AdaBoostClassifier, GradientBoostingClassifier)
+@sk_import ensemble:RandomForestClassifier
 
 
 ##### Functions:
@@ -764,10 +776,6 @@ end;
 
 ### Crossvalidation
 
-@sk_import svm: SVC
-@sk_import tree: DecisionTreeClassifier
-@sk_import neighbors: KNeighborsClassifier
-
 function modelCrossValidation(modelType::Symbol,
         modelHyperparameters::Dict,
         inputs::AbstractArray{<:Real,2},
@@ -862,12 +870,161 @@ function modelCrossValidation(modelType::Symbol,
 
 end
 
-# LAST UPDATE: Notebook 6
+### 7 ###
 
-# AdHoc functions
-function ordinalEncoding(feature::Vector{<:Any}, classes::Vector{<:Any})
-    mapping = Dict(classes .=> 1:length(classes))
-    return map(feat -> mapping[feat], feature)
+### Ensemble models
+
+function trainClassEnsemble(estimators::AbstractArray{Symbol,1}, 
+        modelsHyperParameters::AbstractArray{Dict{String,Any}, 1},     
+        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},    
+        kFoldIndices::Array{Int64,1},
+        weights::Array{Int64,1}
+    )
+
+    # Ensemble chosen: Weigthed Mayority Voting
+
+    (inputs, targets) = trainingDataset
+
+    @assert length(estimators) == length(modelsHyperParameters) "There must be hyperparameters for all estimators"
+    @assert length(estimators) == length(weights) "Weights must be specified for all estimators"
+    @assert length(kFoldIndices) == size(inputs,1) "The number of KFoldIndices must be equal to the number of patterns"
+    @assert size(targets,1) == size(inputs,1) "The number of patterns in the inputs and targets has to be equal"
+
+    numFolds = length(unique(kFoldIndices))
+    numModels   = length(estimators)
+    baseModels = []
+
+    testAccuracies      = zeros(Float64, numFolds)
+    testSens            = zeros(Float64, numFolds)
+    testSpec            = zeros(Float64, numFolds)
+    testPPV             = zeros(Float64, numFolds)
+    testNPV             = zeros(Float64, numFolds)
+    testF1              = zeros(Float64, numFolds)
+
+    for numFold in 1:numFolds
+        
+        # Prepare the data in train-test split with CV indices (K-fold datasets)
+        trainingInputsK     = inputs[kFoldIndices.!=numFold,:];
+        testInputsK         = inputs[kFoldIndices.==numFold,:];
+        trainingTargetsK    = targets[kFoldIndices.!=numFold,:];
+        testTargetsK        = targets[kFoldIndices.==numFold,:];
+        
+        for (index,estimator) in enumerate(estimators)
+            
+            modelHyperparameters = modelsHyperParameters[index]
+            
+            # Build base model
+            if estimator == :SVM
+
+                model = SVC(
+                    kernel  = modelHyperparameters["kernel"], 
+                    degree  = modelHyperparameters["kernelDegree"], 
+                    gamma   = modelHyperparameters["kernelGamma"], 
+                    C       = modelHyperparameters["C"],
+                    probability = true
+                )
+
+            elseif estimator == :DecisionTree
+
+                model = DecisionTreeClassifier(
+                    max_depth       = modelHyperparameters["maxDepth"], 
+                    random_state    = modelHyperparameters["randomState"]
+                )
+
+            elseif estimator == :kNN
+
+                model = KNeighborsClassifier(modelHyperparameters["k"])
+
+            elseif estimator == :MLPC # == ANN
+
+                model = MLPClassifier(
+                    hidden_layer_sizes  = modelHyperparameters["topology"],
+                    max_iter            = modelHyperparameters["maxEpochs"],
+                    learning_rate_init  = modelHyperparameters["learningRate"]
+                )
+
+            end
+            
+            #Train Model 
+            println(size(trainingInputsK))
+            println(size(trainingTargetsK))
+            fit!(model, trainingInputsK, trainingTargetsK);
+            
+            # Store model
+            push!(baseModels, (string(estimator), model) )
+
+        end
+        
+        # Choose a classifier method: Weigthed Mayority Voting.
+        println(baseModels)
+        ensemble_model = VotingClassifier(estimators = baseModels, voting="soft", weights=weights) # n_jobs = -1
+        fit!(ensemble_model, trainingInputsK, trainingTargetsK)
+        
+        # Predict using the test set.
+        testOutputsK = predict(ensemble_model, testInputsK)
+
+        # Obtaining metrics
+        (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(testOutputsK,testTargetsK[:,1])
+
+        push!(testAccuracies,   acc)
+        push!(testSens,         sensitivity)
+        push!(testSpec,         specificity)
+        push!(testPPV,          PPV)
+        push!(testNPV,          NPV)
+        push!(testF1,           f1)
+
+        accuracy = score(ensemble_model, testInputsK, testTargetsK)
+        # testResults[numFold] = accuracy
+        
+        println("K", numFold, " Accuracy: ", round(accuracy, digits = 4))
+    end
+        
+    # Finally, provide the result of averaging the values of these vectors for each metric together with their standard deviations.
+
+    finalAccuracyMean = mean(testAccuracies)
+    finalSensMean =     mean(testSens)
+    finalSpecMean =     mean(testSpec)
+    finalPPVMean =      mean(testPPV)
+    finalNPVMean =      mean(testNPV)
+    finalF1Mean =       mean(testF1)
+
+    finalAccuracyStd = std(testAccuracies)
+    finalSensStd =     std(testSens)
+    finalSpecStd =     std(testSpec)
+    finalPPVStd =      std(testPPV)
+    finalNPVStd =      std(testNPV)
+    finalF1Std =       std(testF1)
+
+    return ([finalAccuracyMean, finalSensMean, finalSpecMean, finalPPVMean, finalNPVMean, finalF1Mean],
+        [finalAccuracyStd, finalSensStd, finalSpecStd, finalPPVStd, finalNPVStd, finalF1Std])
+
+    # finalAcc = (mean(testResults), std(testResults))
+
+    # return finalAcc
 end
 
-ordinalEncoding(feature::Vector{<:Any}) = ordinalEncoding(feature, unique(feature))
+function trainClassEnsemble(baseEstimator::Symbol, 
+        modelsHyperParameters::Dict,
+        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},     
+        kFoldIndices::Array{Int64,1};
+        NumEstimators::Int=100
+    )
+
+    @assert length(NumEstimators) > 0 "Number of estimators must be at least one"
+
+    repeated_estimator = repeat([baseEstimator], NumEstimators)
+    repeated_HyperParameters = repeat([modelsHyperParameters], NumEstimators)
+    weights = ones(Int64,NumEstimators)
+
+    return trainClassEnsemble(repeated_estimator, repeated_HyperParameters, trainingDataset, kFoldIndices, weights)
+
+    #TODO: Check if it's working properly
+end
+
+### 8 ###
+
+### Dimension reduction
+
+
+
+# LAST UPDATE: Notebook 7
