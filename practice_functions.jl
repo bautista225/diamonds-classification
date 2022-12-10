@@ -360,3 +360,36 @@ function getMinMaxNormalizedColumns(df, columns, normalization_parameters)
 
     return columns_minMax
 end
+
+function performCrossValidationTests(parameters, common_parameters, model, inputs, targets, kfoldindex)
+
+    results_matrix = Array{Any,1}()
+
+    table_headers = Array{String, 1}(undef, length(parameters))
+    for i = 1:length(parameters)
+
+        current_parameter = convert(Dict{String, Any}, parameters[i])
+
+        header = ""
+        for (key, value) in current_parameter
+            header *= key * "=" * string(value) * ", "
+        end
+        header = header[1:end-2]
+        table_headers[i] = header
+
+        for (key, value) in common_parameters
+            current_parameter[key] = value
+        end
+
+        push!(results_matrix, modelCrossValidation(model, current_parameter, inputs, targets, kfoldindex))
+    end
+
+    println(results_matrix)
+
+    pretty_table(header=[model,"Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
+        table_headers,
+        [[round(results_matrix[i][1][j], digits=4) for i in 1:length(results_matrix)] for j in 1:6]...
+        )  
+    )
+
+end

@@ -4,6 +4,7 @@
 # Pkg.add("Statistics")
 # Pkg.add("ScikitLearn");
 # Pkg.add("PrettyTables")
+# Pkg.add("ScikitLearnBase")
 
 using Flux;
 using Flux.Losses;
@@ -842,8 +843,8 @@ function modelCrossValidation(modelType::Symbol,
     for numFold in 1:numFolds
         trainingInputsK =    inputs[crossValidationIndices.!=numFold,:];
         testInputsK =        inputs[crossValidationIndices.==numFold,:];
-        trainingTargetsK =  targets[crossValidationIndices.!=numFold,:];
-        testTargetsK =      targets[crossValidationIndices.==numFold,:];
+        trainingTargetsK =  targets[crossValidationIndices.!=numFold];
+        testTargetsK =      targets[crossValidationIndices.==numFold];
 
         fit!(model, trainingInputsK, trainingTargetsK)
         
@@ -859,14 +860,22 @@ function modelCrossValidation(modelType::Symbol,
     
     end
     
-    finalAccuracy = (mean(testAccuracies),  std(testAccuracies))
-    finalSens =     (mean(testSens),        std(testSens))
-    finalSpec =     (mean(testSpec),        std(testSpec))
-    finalPPV =      (mean(testPPV),         std(testPPV))
-    finalNPV =      (mean(testNPV),         std(testNPV))
-    finalF1 =       (mean(testF1),          std(testF1))
-    
-    return (finalAccuracy,finalSens,finalSpec,finalPPV,finalNPV,finalF1)
+    finalAccuracyMean = mean(testAccuracies)
+    finalSensMean =     mean(testSens)
+    finalSpecMean =     mean(testSpec)
+    finalPPVMean =      mean(testPPV)
+    finalNPVMean =      mean(testNPV)
+    finalF1Mean =       mean(testF1)
+
+    finalAccuracyStd = std(testAccuracies)
+    finalSensStd =     std(testSens)
+    finalSpecStd =     std(testSpec)
+    finalPPVStd =      std(testPPV)
+    finalNPVStd =      std(testNPV)
+    finalF1Std =       std(testF1)
+
+    return ([finalAccuracyMean, finalSensMean, finalSpecMean, finalPPVMean, finalNPVMean, finalF1Mean],
+        [finalAccuracyStd, finalSensStd, finalSpecStd, finalPPVStd, finalNPVStd, finalF1Std])
 
 end
 
@@ -892,7 +901,6 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
 
     numFolds = length(unique(kFoldIndices))
     numModels   = length(estimators)
-    baseModels = []
 
     testAccuracies      = zeros(Float64, numFolds)
     testSens            = zeros(Float64, numFolds)
@@ -902,12 +910,12 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
     testF1              = zeros(Float64, numFolds)
 
     for numFold in 1:numFolds
-        
+        baseModels = []
         # Prepare the data in train-test split with CV indices (K-fold datasets)
         trainingInputsK     = inputs[kFoldIndices.!=numFold,:];
         testInputsK         = inputs[kFoldIndices.==numFold,:];
-        trainingTargetsK    = targets[kFoldIndices.!=numFold,:];
-        testTargetsK        = targets[kFoldIndices.==numFold,:];
+        trainingTargetsK    = targets[kFoldIndices.!=numFold];
+        testTargetsK        = targets[kFoldIndices.==numFold];
         
         for (index,estimator) in enumerate(estimators)
             
@@ -942,21 +950,27 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
                     max_iter            = modelHyperparameters["maxEpochs"],
                     learning_rate_init  = modelHyperparameters["learningRate"]
                 )
-
+                
+            elseif estimator == :FluxANN # ANN implemented with Flux
+                model = FluxANN(
+                    topology = modelHyperparameters["topology"],
+                    transferFunctions = modelHyperparameters["transferFunctions"],
+                    maxEpochs = modelHyperparameters["maxEpochs"],
+                    minLoss = modelHyperparameters["minLoss"],
+                    learningRate = modelHyperparameters["learningRate"],
+                    maxEpochsVal = modelHyperparameters["maxEpochsVal"]
+                )
             end
             
             #Train Model 
-            println(size(trainingInputsK))
-            println(size(trainingTargetsK))
             fit!(model, trainingInputsK, trainingTargetsK);
             
             # Store model
-            push!(baseModels, (string(estimator), model) )
+            push!(baseModels, ((string(estimator) * string(numFold)), model))
 
         end
         
         # Choose a classifier method: Weigthed Mayority Voting.
-        println(baseModels)
         ensemble_model = VotingClassifier(estimators = baseModels, voting="soft", weights=weights) # n_jobs = -1
         fit!(ensemble_model, trainingInputsK, trainingTargetsK)
         
@@ -966,17 +980,14 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
         # Obtaining metrics
         (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(testOutputsK,testTargetsK[:,1])
 
-        push!(testAccuracies,   acc)
-        push!(testSens,         sensitivity)
-        push!(testSpec,         specificity)
-        push!(testPPV,          PPV)
-        push!(testNPV,          NPV)
-        push!(testF1,           f1)
-
-        accuracy = score(ensemble_model, testInputsK, testTargetsK)
-        # testResults[numFold] = accuracy
+        testAccuracies[numFold] = acc
+        testSens[numFold] = sensitivity
+        testSpec[numFold] = specificity
+        testPPV[numFold] = PPV
+        testNPV[numFold] = NPV
+        testF1[numFold] = f1
         
-        println("K", numFold, " Accuracy: ", round(accuracy, digits = 4))
+        println("K", numFold, " Accuracy: ", round(acc, digits=4))
     end
         
     # Finally, provide the result of averaging the values of these vectors for each metric together with their standard deviations.
@@ -1028,3 +1039,69 @@ end
 
 
 # LAST UPDATE: Notebook 7
+
+
+import ScikitLearnBase
+
+# trainClassANN(topology::AbstractArray{<:Int,1},  
+# trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; 
+# validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}= 
+#         (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)), 
+# testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}= 
+#         (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)), 
+# transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), 
+# maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,  
+# maxEpochsVal::Int=20, showText::Bool=false)
+
+mutable struct FluxANN <: ScikitLearnBase.BaseClassifier
+    topology::AbstractArray{<:Int,1}
+    transferFunctions::AbstractArray{<:Function,1}
+    maxEpochs::Int
+    minLoss::Real
+    learningRate::Real
+    maxEpochsVal::Int
+
+    _estimator_type::String
+    get_params::Function
+
+    ann::Flux.Chain
+    classes::Vector{<:AbstractString}
+
+    function FluxANN(; topology::AbstractArray{<:Int,1},
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000,
+    minLoss::Real=0.0,
+    learningRate::Real=0.01,
+    maxEpochsVal::Int=20)
+        obj = new(topology, transferFunctions, maxEpochs, minLoss, learningRate, maxEpochsVal, "classifier")
+        function get_params_method(; deep=true)
+            return get_params(obj)
+        end
+        obj.get_params = get_params_method
+        return obj
+    end
+end
+
+ScikitLearnBase.@declare_hyperparameters(FluxANN, [:topology, :transferFunctions, :maxEpochs, :minLoss, :learningRate, :maxEpochsVal])
+ScikitLearnBase.is_classifier(::FluxANN) = true
+ScikitLearnBase.get_classes(model::FluxANN) = model.classes
+
+# TODO: modify oneVSall function to return models instead of outputs
+# - in fit!, apply one-hot encoding, create models with trainClassANN / oneVSall and store them in FluxANN struct
+# in predict, if using oneVSall apply all models and obtain output class with softmax
+# if using trainClassANN, apply model and return class for which the output value is biggest
+
+function ScikitLearnBase.fit!(model::FluxANN, X, y)
+    model.classes=unique(y)
+    y_onehot = oneHotEncoding(y, model.classes)
+    (model.ann, _) = trainClassANN(model.topology, (X, y_onehot), transferFunctions=model.transferFunctions,
+    maxEpochs=model.maxEpochs, minLoss=model.minLoss, learningRate=model.learningRate)
+    return model
+end
+
+function ScikitLearnBase.predict(model::FluxANN, X)
+    outputs = model.ann(X)
+    outputs_onehot = classifyOutputs(outputs)
+    outputs_text = model.classes[(x -> x[2]).(findmax(outputs_onehot, dims=2)[2])]
+    return outputs_text
+end
