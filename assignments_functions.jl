@@ -189,6 +189,10 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     loss_values = Vector{Float32}()
     accuracy_values = Vector{Float32}()
 
+
+
+
+
     for epoch in 1:maxEpochs
         Flux.train!(loss, Flux.params(ann), [(dataset[1]', dataset[2]')], ADAM(learningRate)) # Network training
         loss_value = loss(dataset[1]',dataset[2]')
@@ -742,12 +746,19 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         
     end; # kfold loop end
 
-    finalAccuracy = (mean(testAccuracies),  std(testAccuracies))
-    finalSens =     (mean(testSens),        std(testSens))
-    finalSpec =     (mean(testSpec),        std(testSpec))
-    finalPPV =      (mean(testPPV),         std(testPPV))
-    finalNPV =      (mean(testNPV),         std(testNPV))
-    finalF1 =       (mean(testF1),          std(testF1))
+    finalAccuracyMean = mean(testAccuracies)
+    finalSensMean =     mean(testSens)
+    finalSpecMean =     mean(testSpec)
+    finalPPVMean =      mean(testPPV)
+    finalNPVMean =      mean(testNPV)
+    finalF1Mean =       mean(testF1)
+
+    finalAccuracyStd = std(testAccuracies)
+    finalSensStd =     std(testSens)
+    finalSpecStd =     std(testSpec)
+    finalPPVStd =      std(testPPV)
+    finalNPVStd =      std(testNPV)
+    finalF1Std =       std(testF1)
 
     if showText
         println("---------------------------")
@@ -756,7 +767,8 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         end
     end
 
-    return (finalAccuracy,finalSens,finalSpec,finalPPV,finalNPV,finalF1)
+    return ([finalAccuracyMean, finalSensMean, finalSpecMean, finalPPVMean, finalNPVMean, finalF1Mean],
+        [finalAccuracyStd, finalSensStd, finalSpecStd, finalPPVStd, finalNPVStd, finalF1Std])
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1},
@@ -789,7 +801,7 @@ function modelCrossValidation(modelType::Symbol,
 
     if modelType == :ANN
 
-        println("Executing for ANN.")
+        # println("Executing for ANN.")
     
         encodedTargets = oneHotEncoding(targets, unique(targets))
 
@@ -806,7 +818,7 @@ function modelCrossValidation(modelType::Symbol,
         
     elseif modelType == :SVM
 
-        println("Executing for SVM.")
+        # println("Executing for SVM.")
 
         model = SVC(
             kernel          = modelHyperparameters["kernel"], 
@@ -817,7 +829,7 @@ function modelCrossValidation(modelType::Symbol,
 
     elseif modelType == :DecisionTree
 
-        println("Executing for DecisionTree.")
+        # println("Executing for DecisionTree.")
 
         model = DecisionTreeClassifier(
             max_depth       = modelHyperparameters["max_depth"], 
@@ -826,7 +838,7 @@ function modelCrossValidation(modelType::Symbol,
 
     elseif modelType == :kNN
         
-        println("Executing for kNN.")
+        # println("Executing for kNN.")
 
         model = KNeighborsClassifier(modelHyperparameters["k"]);
     end
@@ -926,8 +938,8 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
 
                 model = SVC(
                     kernel  = modelHyperparameters["kernel"], 
-                    degree  = modelHyperparameters["kernelDegree"], 
-                    gamma   = modelHyperparameters["kernelGamma"], 
+                    degree  = modelHyperparameters["degree"], 
+                    gamma   = modelHyperparameters["gamma"], 
                     C       = modelHyperparameters["C"],
                     probability = true
                 )
@@ -935,8 +947,8 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
             elseif estimator == :DecisionTree
 
                 model = DecisionTreeClassifier(
-                    max_depth       = modelHyperparameters["maxDepth"], 
-                    random_state    = modelHyperparameters["randomState"]
+                    max_depth       = modelHyperparameters["max_depth"], 
+                    random_state    = modelHyperparameters["random_state"]
                 )
 
             elseif estimator == :kNN

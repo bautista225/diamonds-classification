@@ -384,12 +384,67 @@ function performCrossValidationTests(parameters, common_parameters, model, input
         push!(results_matrix, modelCrossValidation(model, current_parameter, inputs, targets, kfoldindex))
     end
 
-    println(results_matrix)
-
     pretty_table(header=[model,"Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
         table_headers,
         [[round(results_matrix[i][1][j], digits=4) for i in 1:length(results_matrix)] for j in 1:6]...
         )  
     )
 
+    return results_matrix
+
+end
+
+function getBestModelParameters(metric, models_performance, parameters, common_parameters)
+
+    metrics = ["Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"]
+
+    best_parameters = convert(Dict{String, Any}, parameters[argmax(models_performance[:, 1, findfirst(m->m==metric, metrics)])])
+
+    for (key, value) in common_parameters
+        best_parameters[key] = value
+    end
+
+    return best_parameters
+
+end
+
+
+
+function trainClassSklearn(modelType::Symbol,
+    modelHyperparameters::Dict,
+    inputs::AbstractArray{<:Real,2},
+    targets::AbstractArray{<:Any,1})
+    @assert modelType in (:SVM, :DecisionTree, :kNN) "The selected modelType is not available"
+    @assert size(inputs,1) == size(targets,1) "The number of patterns has to be equal in the input and target sets"
+        
+    if modelType == :SVM
+
+        # println("Executing for SVM.")
+
+        model = SVC(
+            kernel          = modelHyperparameters["kernel"], 
+            degree          = modelHyperparameters["degree"], 
+            gamma           = modelHyperparameters["gamma"], 
+            C               = modelHyperparameters["C"]
+        );
+
+    elseif modelType == :DecisionTree
+
+        # println("Executing for DecisionTree.")
+
+        model = DecisionTreeClassifier(
+            max_depth       = modelHyperparameters["max_depth"], 
+            random_state    = modelHyperparameters["random_state"]
+        );
+
+    elseif modelType == :kNN
+        
+        # println("Executing for kNN.")
+
+        model = KNeighborsClassifier(modelHyperparameters["k"]);
+    end
+
+    fit!(model, inputs, targets)
+
+    return model
 end
