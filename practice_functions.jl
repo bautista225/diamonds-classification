@@ -398,7 +398,7 @@ function getBestModelParameters(metric, models_performance, parameters, common_p
 
     metrics = ["Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"]
 
-    best_parameters = convert(Dict{String, Any}, parameters[argmax(models_performance[:, 1, findfirst(m->m==metric, metrics)])])
+    best_parameters = convert(Dict{String, Any}, parameters[argmax(permutedims(hcat([model_performance[1] for model_performance in models_performance]...))[:,findfirst(m->m==metric, metrics)])])
 
     for (key, value) in common_parameters
         best_parameters[key] = value
