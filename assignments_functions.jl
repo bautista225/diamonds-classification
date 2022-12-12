@@ -544,7 +544,7 @@ function oneVSall(inputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2
     return outputs
 end;
 
-#Confusion Matrix
+# Confusion Matrix
 
 function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
     
@@ -1052,68 +1052,78 @@ end
 
 # LAST UPDATE: Notebook 7
 
+function trainClassEnsemble(estimators::AbstractArray{Symbol,1}, 
+        modelsHyperParameters::AbstractArray{Dict{String,Any}, 1},     
+        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},
+        weights::Array{Int64,1}
+    )
 
-import ScikitLearnBase
+    # Ensemble chosen: Weigthed Mayority Voting
 
-# trainClassANN(topology::AbstractArray{<:Int,1},  
-# trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; 
-# validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}= 
-#         (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)), 
-# testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}= 
-#         (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)), 
-# transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), 
-# maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,  
-# maxEpochsVal::Int=20, showText::Bool=false)
+    (inputs, targets) = trainingDataset
 
-mutable struct FluxANN <: ScikitLearnBase.BaseClassifier
-    topology::AbstractArray{<:Int,1}
-    transferFunctions::AbstractArray{<:Function,1}
-    maxEpochs::Int
-    minLoss::Real
-    learningRate::Real
-    maxEpochsVal::Int
+    @assert length(estimators) == length(modelsHyperParameters) "There must be hyperparameters for all estimators"
+    @assert length(estimators) == length(weights) "Weights must be specified for all estimators"
+    @assert size(targets,1) == size(inputs,1) "The number of patterns in the inputs and targets has to be equal"
 
-    _estimator_type::String
-    get_params::Function
+    baseModels = []
+    
+    for (index,estimator) in enumerate(estimators)
+        
+        modelHyperparameters = modelsHyperParameters[index]
+        
+        # Build base model
+        if estimator == :SVM
 
-    ann::Flux.Chain
-    classes::Vector{<:AbstractString}
+            model = SVC(
+                kernel  = modelHyperparameters["kernel"], 
+                degree  = modelHyperparameters["degree"], 
+                gamma   = modelHyperparameters["gamma"], 
+                C       = modelHyperparameters["C"],
+                probability = true
+            )
 
-    function FluxANN(; topology::AbstractArray{<:Int,1},
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000,
-    minLoss::Real=0.0,
-    learningRate::Real=0.01,
-    maxEpochsVal::Int=20)
-        obj = new(topology, transferFunctions, maxEpochs, minLoss, learningRate, maxEpochsVal, "classifier")
-        function get_params_method(; deep=true)
-            return get_params(obj)
+        elseif estimator == :DecisionTree
+
+            model = DecisionTreeClassifier(
+                max_depth       = modelHyperparameters["max_depth"], 
+                random_state    = modelHyperparameters["random_state"]
+            )
+
+        elseif estimator == :kNN
+
+            model = KNeighborsClassifier(modelHyperparameters["k"])
+
+        elseif estimator == :MLPC # == ANN
+
+            model = MLPClassifier(
+                hidden_layer_sizes  = modelHyperparameters["topology"],
+                max_iter            = modelHyperparameters["maxEpochs"],
+                learning_rate_init  = modelHyperparameters["learningRate"]
+            )
+            
+        elseif estimator == :FluxANN # ANN implemented with Flux
+            model = FluxANN(
+                topology = modelHyperparameters["topology"],
+                transferFunctions = modelHyperparameters["transferFunctions"],
+                maxEpochs = modelHyperparameters["maxEpochs"],
+                minLoss = modelHyperparameters["minLoss"],
+                learningRate = modelHyperparameters["learningRate"],
+                maxEpochsVal = modelHyperparameters["maxEpochsVal"]
+            )
         end
-        obj.get_params = get_params_method
-        return obj
+        
+        #Train Model 
+        fit!(model, inputs, targets);
+        
+        # Store model
+        push!(baseModels, (string(estimator), model))
+
     end
-end
-
-ScikitLearnBase.@declare_hyperparameters(FluxANN, [:topology, :transferFunctions, :maxEpochs, :minLoss, :learningRate, :maxEpochsVal])
-ScikitLearnBase.is_classifier(::FluxANN) = true
-ScikitLearnBase.get_classes(model::FluxANN) = model.classes
-
-# TODO: modify oneVSall function to return models instead of outputs
-# - in fit!, apply one-hot encoding, create models with trainClassANN / oneVSall and store them in FluxANN struct
-# in predict, if using oneVSall apply all models and obtain output class with softmax
-# if using trainClassANN, apply model and return class for which the output value is biggest
-
-function ScikitLearnBase.fit!(model::FluxANN, X, y)
-    model.classes=unique(y)
-    y_onehot = oneHotEncoding(y, model.classes)
-    (model.ann, _) = trainClassANN(model.topology, (X, y_onehot), transferFunctions=model.transferFunctions,
-    maxEpochs=model.maxEpochs, minLoss=model.minLoss, learningRate=model.learningRate)
-    return model
-end
-
-function ScikitLearnBase.predict(model::FluxANN, X)
-    outputs = model.ann(X)
-    outputs_onehot = classifyOutputs(outputs)
-    outputs_text = model.classes[(x -> x[2]).(findmax(outputs_onehot, dims=2)[2])]
-    return outputs_text
+    
+    # Choose a classifier method: Weigthed Mayority Voting.
+    ensemble_model = VotingClassifier(estimators = baseModels, voting="soft", weights=weights) # n_jobs = -1
+    fit!(ensemble_model, inputs, targets)
+        
+    return ensemble_model
 end
