@@ -1,3 +1,5 @@
+### 1. Importing modules ###
+
 # Loading assignments functions.
 
 include("assignments_functions.jl");
@@ -17,6 +19,8 @@ using DataFrames;
 df = DataFrame(CSV.File("diamonds.csv"))
 
 describe(df)
+
+### 2. Data preprocessing ###
 
 # As Column1 has the same indices as dataframe indices, we delete Column1.
 df_filtered = df[!,names(df)[names(df) .!= "Column1"]]
@@ -91,9 +95,17 @@ println("Dataset without relative errors $(size(df_without_relative_errors,1)) o
 df_with_volume = addVolumeColumntoDataframe(df_without_relative_errors)
 push!(numerical_columns, :volume)
 
+
+### 3. Descriptive analysis ###
+
 # plot_dataframe(df_with_volume, categorical_columns, numerical_columns, save_charts=true)
 
 df_preprocessed = copy(df_with_volume)
+
+
+### 4. Data transformations ###
+
+## 4.1. Ordinal encoding and one-hot encoding. ##
 
 # Ordinal enconding
 
@@ -103,6 +115,8 @@ df_ordinal_encoded = diamondsOrdinalEncoding(df_preprocessed)
 
 targets = df_preprocessed[!,:cut]
 targets = String15.(targets)
+
+## 4.2. Split dataset into train and test ##
 
 input_data = df_ordinal_encoded[!, Not("cut")]
 output_data = targets
@@ -116,6 +130,9 @@ N = size(input_data,1)
 
 train_input, train_output   = (input_data[trainingIndex,:], output_data[trainingIndex,:])
 test_input, test_output     = (input_data[testIndex,:],     output_data[testIndex,:])
+
+
+## 4.3. Normalize features. ##
 
 # Preserve initial indexes.
 
@@ -148,6 +165,9 @@ train_input_transformed[:, ordinal_indices]     = train_input_ordinal_columns_mi
 
 test_input_transformed[:, numerical_indices]   = test_input_numerical_columns_zeroMean
 test_input_transformed[:, ordinal_indices]     = test_input_ordinal_columns_minMax
+
+
+### 5. Perform cross-validation for selecting hyperparameters ###
 
 # Train
 train_inputs = train_input_transformed
@@ -204,7 +224,7 @@ dt_best_model_parameters = getBestModelParameters("Fscore", models_performance, 
 
 # kNN classifier
 
-# 6 differentt models varing k values
+# 6 different models varing k values
 parameters = [
     Dict("k" => 3),
     Dict("k" => 5),
@@ -294,7 +314,7 @@ ensemble_model = trainClassEnsemble(
     [3,1,1,2]
 )
 
-# Calculate metrics with confussionMatrix() function
+# Calculate metrics with confusionMatrix() function
 (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(predict(ensemble_model, test_inputs),test_targets)
 
 pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
@@ -302,6 +322,9 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
     acc,sensitivity,specificity,PPV,NPV,f1
     )  
 )
+
+
+### 6. Train final model ###
 
 cut_range_ordered = ["Fair", "Good", "Very Good", "Premium", "Ideal"]
 
