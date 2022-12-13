@@ -2,8 +2,8 @@
 
 # Loading assignments functions.
 
-include("assignments_functions.jl");
-include("practice_functions.jl");
+include("utils/assignments_functions.jl");
+include("utils/practice_functions.jl");
 
 # Importing modules
 
@@ -16,7 +16,7 @@ using DataFrames;
 
 # Loading csv file as dataframe.
 
-df = DataFrame(CSV.File("diamonds.csv"))
+df = DataFrame(CSV.File("dataset/diamonds.csv"))
 
 describe(df)
 
