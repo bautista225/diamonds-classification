@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ml_group_practice</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>notebook</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 
 
 
@@ -14620,8 +14620,8 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-julia"><pre><span></span><span class="c"># Loading assignments functions.</span><span class="w"></span>
 
-<span class="n">include</span><span class="p">(</span><span class="s">&quot;assignments_functions.jl&quot;</span><span class="p">);</span><span class="w"></span>
-<span class="n">include</span><span class="p">(</span><span class="s">&quot;practice_functions.jl&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="n">include</span><span class="p">(</span><span class="s">&quot;utils/assignments_functions.jl&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="n">include</span><span class="p">(</span><span class="s">&quot;utils/practice_functions.jl&quot;</span><span class="p">);</span><span class="w"></span>
 </pre></div>
 
      </div>
@@ -14702,7 +14702,7 @@ for more information.
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-julia"><pre><span></span><span class="c"># Loading csv file as dataframe.</span><span class="w"></span>
 
-<span class="n">df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DataFrame</span><span class="p">(</span><span class="n">CSV</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s">&quot;diamonds.csv&quot;</span><span class="p">))</span><span class="w"></span>
+<span class="n">df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DataFrame</span><span class="p">(</span><span class="n">CSV</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s">&quot;dataset/diamonds.csv&quot;</span><span class="p">))</span><span class="w"></span>
 </pre></div>
 
      </div>
@@ -16365,11 +16365,6 @@ K5 Accuracy: 0.7947
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Training weighed voting ensemble classifier...
-┌────────────────┬──────────┬─────────────┬─────────────┬──────────┬──────────┬──────────┐
-│<span class="ansi-bold">    Final Model </span>│<span class="ansi-bold"> Accuracy </span>│<span class="ansi-bold"> Sensitivity </span>│<span class="ansi-bold"> Specificity </span>│<span class="ansi-bold">      PPV </span>│<span class="ansi-bold">      NPV </span>│<span class="ansi-bold">   Fscore </span>│
-├────────────────┼──────────┼─────────────┼─────────────┼──────────┼──────────┼──────────┤
-│ Final Ensemble │ 0.805866 │    0.805866 │    0.904905 │ 0.804954 │ 0.931212 │ 0.802402 │
-└────────────────┴──────────┴─────────────┴─────────────┴──────────┴──────────┴──────────┘
 ┌────────────────┬──────────┬─────────────┬─────────────┬──────────┬──────────┬──────────┐
 │<span class="ansi-bold">    Final Model </span>│<span class="ansi-bold"> Accuracy </span>│<span class="ansi-bold"> Sensitivity </span>│<span class="ansi-bold"> Specificity </span>│<span class="ansi-bold">      PPV </span>│<span class="ansi-bold">      NPV </span>│<span class="ansi-bold">   Fscore </span>│
 ├────────────────┼──────────┼─────────────┼─────────────┼──────────┼──────────┼──────────┤
