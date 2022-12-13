@@ -182,7 +182,7 @@ Plots barchart, histogram, scatter, boxplot, heatmap charts of a dataframe.
 """
 function plot_dataframe(df, categorical_columns, numerical_columns; save_charts = false)
     
-    #= # Bar charts (categorical features).
+    # Bar charts (categorical features).
 
     plot_name = "barchart"
 
@@ -258,7 +258,7 @@ function plot_dataframe(df, categorical_columns, numerical_columns; save_charts 
     
     if save_charts
         savefig(current_plot, "$(plot_name).png")
-    end =#
+    end
 
     # Scatter 3D plot.
 

@@ -168,16 +168,20 @@ test_input_transformed[:, ordinal_indices]     = test_input_ordinal_columns_minM
 
 
 ### 5. Perform cross-validation for selecting hyperparameters ###
+# Labeled classes
+cut_range_ordered = ["Fair", "Good", "Very Good", "Premium", "Ideal"]
 
 # Train
 train_inputs = train_input_transformed
 train_targets = train_output[:,1]
+train_targets_onehot = oneHotEncoding(train_targets, cut_range_ordered)
 
 kfoldindex = crossvalidation(train_targets, 5)
 
 # Test
 test_inputs = test_input_transformed
 test_targets = test_output[:, 1]
+test_targets_onehot = oneHotEncoding(test_targets, cut_range_ordered)
 
 # SVM classifier
 
@@ -304,6 +308,24 @@ models_performance = performCrossValidationTests(parameters, common_parameters, 
 ann_best_model_parameters = getBestModelParameters("Fscore", models_performance, parameters, common_parameters)
 
 # Performing Weighted voting classifier ensemble.
+ensemble_cross_validation_results = trainClassEnsemble( 
+    [:SVM, :DecisionTree, :kNN, :MLPC], 
+    [svm_best_model_parameters, dt_best_model_parameters, knn_best_model_parameters, ann_best_model_parameters],
+    (train_inputs,train_targets),
+    kfoldindex,
+    [3,1,1,2]
+)
+
+pretty_table(header=["Model","Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
+    "Cross-validation Ensemble",
+    ensemble_cross_validation_results[1]...
+    )  
+)
+
+
+### 6. Train final model ###
+
+# Performing Weighted voting classifier ensemble.
 
 println("Training weighed voting ensemble classifier...")
 
@@ -324,12 +346,10 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
 )
 
 
-### 6. Train final model ###
+@sk_import metrics:confusion_matrix
 
-cut_range_ordered = ["Fair", "Good", "Very Good", "Premium", "Ideal"]
-
-train_targets_onehot = oneHotEncoding(train_targets, cut_range_ordered)
-test_targets_onehot = oneHotEncoding(test_targets, cut_range_ordered)
+println("Confusion Matrix:")
+display(confusion_matrix(test_targets,predict(ensemble_model, test_inputs); labels=cut_range_ordered))
 
 println("Training best ANN...")
 
@@ -341,7 +361,7 @@ println("Training best ANN...")
     learningRate = ann_best_model_parameters["learningRate"],
     maxEpochsVal=20, showText=false)
 
-# Calculate metrics with confussionMatrix() function
+# Calculate metrics with confusionMatrix() function
 (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(ann(test_inputs')',test_targets_onehot)
 
 pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
@@ -350,11 +370,14 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
     )  
 )
 
+println("Confusion Matrix:")
+display(confusion_matrix([index[2] for index in argmax(test_targets_onehot, dims=2)],[index[2] for index in argmax(ann(test_inputs')', dims=2)]))
+
 # ScikitLearn models (SVM)
 println("Training best SVM...")
 model = trainClassSklearn(:SVM, svm_best_model_parameters, train_inputs, train_targets)
 
-# Calculate metrics with confussionMatrix() function
+# Calculate metrics with confusionMatrix() function
 (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(predict(model, test_inputs),test_targets)
 
 pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
@@ -362,6 +385,9 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
     acc,sensitivity,specificity,PPV,NPV,f1
     )  
 )
+
+println("Confusion Matrix:")
+display(confusion_matrix(test_targets,predict(model, test_inputs); labels=cut_range_ordered))
 
 # ScikitLearn models (Decision tree)
 println("Training best decision tree...")
@@ -380,11 +406,14 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
     )  
 )
 
+println("Confusion Matrix:")
+display(confusion_matrix(test_targets,predict(model, test_inputs); labels=cut_range_ordered))
+
 # ScikitLearn models (KNN)
 println("Training best KNN...")
 model = trainClassSklearn(:kNN, knn_best_model_parameters, train_inputs, train_targets)
 
-# Calculate metrics with confussionMatrix() function
+# Calculate metrics with confusionMatrix() function
 (acc,_,sensitivity,specificity,PPV,NPV,f1,_) = confusionMatrix(predict(model, test_inputs),test_targets)
 
 pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PPV", "NPV", "Fscore"],hcat(
@@ -392,3 +421,6 @@ pretty_table(header=["Final Model","Accuracy", "Sensitivity", "Specificity", "PP
     acc,sensitivity,specificity,PPV,NPV,f1
     )  
 )
+
+println("Confusion Matrix:")
+display(confusion_matrix(test_targets,predict(model, test_inputs); labels=cut_range_ordered))
